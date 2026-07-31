@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "789256691478",
+    "project_id": "belediye-yemek-menusu",
+    "storage_bucket": "belediye-yemek-menusu.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:789256691478:android:0fec198f582446826bba37",
+        "android_client_info": {
+          "package_name": "com.example.belediye_menu_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBT1yg1wNJgh4ZLXuvEK5n4jpcLeaCjuJU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
