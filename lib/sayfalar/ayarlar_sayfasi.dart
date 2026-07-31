@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AyarlarSayfasi extends StatefulWidget {
   const AyarlarSayfasi({Key? key}) : super(key: key);
@@ -11,11 +12,9 @@ class _AyarlarSayfasiState extends State<AyarlarSayfasi> {
   // Bildirimlerin genel kontrolü
   bool _bildirimlerAcik = true;
 
-  // Seçili olan saatleri String olarak tutuyoruz (Başlangıç değerleri)
-  String _birinciSaat = '15:00';
-  String _ikinciSaat = '10:00';
-
-  // Dil seçeneği
+  // Seçili olan saatleri String olarak tutuyoruz
+  String _birinciSaat = '17:00'; // Varsayılan akşam saati (Yarının menüsü)
+  String _ikinciSaat = '10:00';  // Varsayılan sabah saati (Bugünün menüsü)
   String _seciliDil = 'Türkçe';
 
   // 1. Bildirim için sadece 13:00 - 23:00 arası seçenekler
@@ -33,31 +32,55 @@ class _AyarlarSayfasiState extends State<AyarlarSayfasi> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _ayarlariYukle(); // Sayfa açılırken hafızadaki saatleri çeker
+  }
+
+  // Cihaz hafızasından kayıtlı ayarları okuma
+  Future<void> _ayarlariYukle() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _bildirimlerAcik = prefs.getBool('bildirim_acik') ?? true;
+      _birinciSaat = prefs.getString('birinci_saat') ?? '17:00';
+      _ikinciSaat = prefs.getString('ikinci_saat') ?? '10:00';
+      _seciliDil = prefs.getString('secili_dil') ?? 'Türkçe';
+    });
+  }
+
+  // Değişiklik yapıldığında hem hafızaya kaydetme hem de (ileride) bildirim alarmını kurma
+  Future<void> _ayarlariKaydet() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('bildirim_acik', _bildirimlerAcik);
+    await prefs.setString('birinci_saat', _birinciSaat);
+    await prefs.setString('ikinci_saat', _ikinciSaat);
+    await prefs.setString('secili_dil', _seciliDil);
+
+    // TODO: Bir sonraki adımda yazacağımız "BildirimServisi" tam olarak buradan tetiklenecek!
+    // Örnek: BildirimServisi.alarmlariGuncelle(_bildirimlerAcik, _birinciSaat, _ikinciSaat);
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      // SAYFAYI STACK (KATMAN) İÇİNE ALDIK
       body: Stack(
         children: [
-          // 1. KATMAN: EN ALTTAKİ MAVİ DALGA (Arka Plan)
           Align(
             alignment: Alignment.bottomCenter,
             child: ClipPath(
-              clipper: BottomWaveClipper(), // Senin yazdığın makas sınıfı
+              clipper: BottomWaveClipper(),
               child: Container(
-                height: 120, // Dalganın boyu (İstediğin gibi azaltıp artırabilirsin)
-                color: const Color(0xFF003893), // Belediyenin kurumsal mavisi (hafif saydam)
+                height: 120,
+                color: const Color(0xFF003893),
               ),
             ),
           ),
-
-          // 2. KATMAN: SAYFANIN ASIL İÇERİĞİ (Ön Plan)
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(20.0),
               child: Column(
                 children: [
-                  // --- TEPEDEKİ LOGO VE GERİ BUTONU ---
                   Stack(
                     alignment: Alignment.center,
                     children: [
@@ -69,7 +92,7 @@ class _AyarlarSayfasiState extends State<AyarlarSayfasi> {
                         ),
                       ),
                       Image.asset(
-                        'assets/logo.png', // DİKKAT: Logonun tam adı neyse ona göre düzelt!
+                        'assets/logo.png',
                         height: 55,
                         fit: BoxFit.contain,
                       ),
@@ -107,6 +130,7 @@ class _AyarlarSayfasiState extends State<AyarlarSayfasi> {
                             setState(() {
                               _bildirimlerAcik = value;
                             });
+                            _ayarlariKaydet(); // Değişimi kaydet
                           },
                         ),
                       ],
@@ -114,7 +138,7 @@ class _AyarlarSayfasiState extends State<AyarlarSayfasi> {
                   ),
                   const SizedBox(height: 16),
 
-                  // 2. BİRİNCİ BİLDİRİM SAATİ KARTI
+                  // 2. BİRİNCİ BİLDİRİM SAATİ KARTI (AKŞAM/YARININ MENÜSÜ)
                   AnimatedOpacity(
                     opacity: _bildirimlerAcik ? 1.0 : 0.4,
                     duration: const Duration(milliseconds: 300),
@@ -129,6 +153,7 @@ class _AyarlarSayfasiState extends State<AyarlarSayfasi> {
                             setState(() {
                               _birinciSaat = yeniSaat;
                             });
+                            _ayarlariKaydet(); // Yeni saati kaydet ve alarmı güncelle
                           }
                         },
                       ),
@@ -136,7 +161,7 @@ class _AyarlarSayfasiState extends State<AyarlarSayfasi> {
                   ),
                   const SizedBox(height: 16),
 
-                  // 3. İKİNCİ BİLDİRİM SAATİ KARTI
+                  // 3. İKİNCİ BİLDİRİM SAATİ KARTI (SABAH/BUGÜNÜN MENÜSÜ)
                   AnimatedOpacity(
                     opacity: _bildirimlerAcik ? 1.0 : 0.4,
                     duration: const Duration(milliseconds: 300),
@@ -151,6 +176,7 @@ class _AyarlarSayfasiState extends State<AyarlarSayfasi> {
                             setState(() {
                               _ikinciSaat = yeniSaat;
                             });
+                            _ayarlariKaydet(); // Yeni saati kaydet ve alarmı güncelle
                           }
                         },
                       ),
@@ -202,6 +228,7 @@ class _AyarlarSayfasiState extends State<AyarlarSayfasi> {
                                 setState(() {
                                   _seciliDil = newValue!;
                                 });
+                                _ayarlariKaydet(); // Dil değişimini kaydet
                               },
                             ),
                           ),
@@ -218,10 +245,9 @@ class _AyarlarSayfasiState extends State<AyarlarSayfasi> {
     );
   }
 
-  // Kart iskeletini oluşturan fonksiyon
   Widget _buildCard({required Widget child}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), // Dropdown'a daha iyi oturması için dikey boşluğu biraz kıstık
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -238,7 +264,6 @@ class _AyarlarSayfasiState extends State<AyarlarSayfasi> {
     );
   }
 
-  // Saatler için yeni hazırladığımız Açılır Menü (Dropdown) Kartı
   Widget _buildTimeDropdownCard({
     required String title,
     required String selectedTime,
@@ -259,7 +284,7 @@ class _AyarlarSayfasiState extends State<AyarlarSayfasi> {
               icon: const Icon(Icons.keyboard_arrow_down, color: Colors.grey),
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF1553B4)),
               dropdownColor: Colors.white,
-              menuMaxHeight: 250, // Açılır menü çok uzun olup ekranı kaplamasın diye kaydırılabilir bir yükseklik verdik
+              menuMaxHeight: 250,
               items: timeOptions.map((String time) {
                 return DropdownMenuItem<String>(
                   value: time,
@@ -275,7 +300,6 @@ class _AyarlarSayfasiState extends State<AyarlarSayfasi> {
   }
 }
 
-// Ekranın Altındaki Kavisli Mavi Dalga
 class BottomWaveClipper extends CustomClipper<Path> {
   @override
   Path getClip(Size size) {
@@ -296,4 +320,3 @@ class BottomWaveClipper extends CustomClipper<Path> {
   @override
   bool shouldReclip(CustomClipper<Path> oldClipper) => false;
 }
-
