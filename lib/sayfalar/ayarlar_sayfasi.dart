@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:belediye_menu_app/services/bildirim_servisi.dart';
 
 class AyarlarSayfasi extends StatefulWidget {
   const AyarlarSayfasi({Key? key}) : super(key: key);
@@ -58,6 +59,7 @@ class _AyarlarSayfasiState extends State<AyarlarSayfasi> {
 
     // TODO: Bir sonraki adımda yazacağımız "BildirimServisi" tam olarak buradan tetiklenecek!
     // Örnek: BildirimServisi.alarmlariGuncelle(_bildirimlerAcik, _birinciSaat, _ikinciSaat);
+    await BildirimServisi.alarmlariGuncelle(_bildirimlerAcik, _birinciSaat, _ikinciSaat);
   }
 
   @override

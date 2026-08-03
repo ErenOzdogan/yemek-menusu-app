@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart'; // FİREBASE PAKETİ EKLENDİ
 import 'sayfalar/onboarding_sayfasi.dart';
 
-// Firebase kurulumu zaman aldığı için (asenkron işlem) fonksiyonu 'Future' ve 'async' yaptık
-Future<void> main() async {
-  // Flutter motoru çalışmadan önce uygulamanın kök yapısının hazır olmasını sağlar
-  WidgetsFlutterBinding.ensureInitialized();
+// 1. KABLO (IMPORT): Bildirim servisini ana sayfaya çağırdık (Klasör adının 'services' olduğunu varsayıyorum)
+import 'package:belediye_menu_app/services/bildirim_servisi.dart';
 
-  // Firebase'i projede başlatır ve google-services.json dosyasını okur
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
+
+  // 2. KABLO (KONTAK): Firebase başlatıldıktan hemen sonra bildirim motorunu uyandırıyoruz!
+  await BildirimServisi.init();
 
   runApp(const BelediyeMenuApp());
 }
@@ -26,7 +28,6 @@ class BelediyeMenuApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0D47A1)),
         useMaterial3: true,
       ),
-      // Senin klasör yapına uygun başlangıç sayfası
       home: const OnboardingSayfasi(),
     );
   }

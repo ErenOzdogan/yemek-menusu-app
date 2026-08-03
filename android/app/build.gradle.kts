@@ -14,6 +14,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // BURAYI YENİ EKLEDİK: Desugaring'i aktif ettik (Kotlin formatında)
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -42,4 +44,9 @@ android {
 
 flutter {
     source = "../.."
+}
+
+// BURAYI YENİ EKLEDİK: Çevirmen kütüphanesini indiren blok (Kotlin formatında)
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
