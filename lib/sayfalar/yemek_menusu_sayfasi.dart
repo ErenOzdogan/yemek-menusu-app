@@ -49,14 +49,17 @@ class _YemekMenusuSayfasiState extends State<YemekMenusuSayfasi> {
     try {
       var snapshot = await FirebaseFirestore.instance.collection('gunluk_menu').get();
 
-      String arananGun = _seciliTarih.day.toString();
+      String arananGun = _seciliTarih.day.toString().padLeft(2, '0');
       String arananAyAdi = _aylar[_seciliTarih.month];
       String arananAyRakam = _seciliTarih.month.toString().padLeft(2, '0');
 
+      String aramaMetni1 = "$arananGun $arananAyAdi"; // Örn: "05 Ağustos"
+      String aramaMetni2 = "$arananGun.$arananAyRakam"; // Örn: "05.08"
+
       bool menuVarMi = snapshot.docs.any((doc) {
         String dbTarih = doc['tarih'].toString();
-        return dbTarih.contains(arananGun) &&
-            (dbTarih.contains(arananAyAdi) || dbTarih.contains(arananAyRakam));
+        // İki formattan biri varsa kabul et!
+        return dbTarih.contains(aramaMetni1) || dbTarih.contains(aramaMetni2);
       });
 
       if (!menuVarMi) {
@@ -143,13 +146,17 @@ class _YemekMenusuSayfasiState extends State<YemekMenusuSayfasi> {
                       Map<String, dynamic>? gunlukVeri;
                       String? seciliBelgeId;
 
-                      String arananGun = _seciliTarih.day.toString();
+                      String arananGun = _seciliTarih.day.toString().padLeft(2, '0');
                       String arananAyAdi = _aylar[_seciliTarih.month];
                       String arananAyRakam = _seciliTarih.month.toString().padLeft(2, '0');
 
+                      String aramaMetni1 = "$arananGun $arananAyAdi"; // "05 Ağustos"
+                      String aramaMetni2 = "$arananGun.$arananAyRakam"; // "05.08"
+
                       for (var doc in docs) {
                         String dbTarih = doc['tarih'].toString();
-                        if (dbTarih.contains(arananGun) && (dbTarih.contains(arananAyAdi) || dbTarih.contains(arananAyRakam))) {
+                        // İki formattan biri eşleşiyorsa o günün verisini ekrana bas
+                        if (dbTarih.contains(aramaMetni1) || dbTarih.contains(aramaMetni2)) {
                           gunlukVeri = doc.data() as Map<String, dynamic>;
                           seciliBelgeId = doc.id;
                           break;

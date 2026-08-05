@@ -6,6 +6,48 @@ class MenuServis {
   final String _url = 'https://kahramanmaras.bel.tr/personel/yemek-menusu';
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  // --- YENİ: AKILLI YEMEK KATEGORİZASYON ALGORİTMASI ---
+  Map<String, String> _kategorizeEt(List<String> kaplar) {
+    // Sadece içi dolu olan kutuları al
+    List<String> doluKaplar = kaplar.where((k) => k.isNotEmpty).toList();
+
+    String c = '', a = '', y = '', t = '';
+    List<String> kalanlar = [];
+
+    // 1. ADIM: Çorbayı Bul (İçinde 'ÇORBA' geçen her şey banko çorbadır)
+    for (String yemek in doluKaplar) {
+      if (yemek.toUpperCase().contains('ÇORBA')) {
+        c = yemek;
+      } else {
+        kalanlar.add(yemek); // Çorba olmayanları ayır
+      }
+    }
+
+    // 2. ADIM: Tatlı veya İçecek Bul (Genelde menünün en sonuna yazılır)
+    if (kalanlar.isNotEmpty) {
+      t = kalanlar.last;
+      kalanlar.removeLast(); // Bulduğumuz tatlıyı/içeceği listeden çıkar
+    }
+
+    // 3. ADIM: Ana Yemek (Çorbadan sonraki ilk yemek her zaman ana yemektir)
+    if (kalanlar.isNotEmpty) {
+      a = kalanlar.first;
+      kalanlar.removeAt(0);
+    }
+
+    // 4. ADIM: Yardımcı Yemek (Geriye 2 tane bile kalsa -örn: salata ve ayran- birleştir)
+    if (kalanlar.isNotEmpty) {
+      y = kalanlar.join(' & '); // 'Çoban Salata & Ayran' şeklinde birleştirir
+    }
+
+    return {
+      'corba': c,
+      'ana_yemek': a,
+      'yardimci_yemek': y,
+      'tatli': t
+    };
+  }
+
   Future<void> haftalikMenuyuCekVeKaydet() async {
     try {
       print("Belediyenin sitesine bağlanılıyor...");
@@ -28,52 +70,62 @@ class MenuServis {
             }
           }
 
-          final kap1 = bugunKutusu.querySelector('.field-name-field-catering-item1 .field-item, .field-name-field-catering-item-1 .field-item')?.text.trim() ?? '';
-          final kap2 = bugunKutusu.querySelector('.field-name-field-catering-item2 .field-item, .field-name-field-catering-item-2 .field-item')?.text.trim() ?? '';
-          final kap3 = bugunKutusu.querySelector('.field-name-field-catering-item3 .field-item, .field-name-field-catering-item-3 .field-item')?.text.trim() ?? '';
-          final kap4 = bugunKutusu.querySelector('.field-name-field-catering-item4 .field-item, .field-name-field-catering-item-4 .field-item')?.text.trim() ?? '';
+          final k1 = bugunKutusu.querySelector('.field-name-field-catering-item1 .field-item, .field-name-field-catering-item-1 .field-item')?.text.trim() ?? '';
+          final k2 = bugunKutusu.querySelector('.field-name-field-catering-item2 .field-item, .field-name-field-catering-item-2 .field-item')?.text.trim() ?? '';
+          final k3 = bugunKutusu.querySelector('.field-name-field-catering-item3 .field-item, .field-name-field-catering-item-3 .field-item')?.text.trim() ?? '';
+          final k4 = bugunKutusu.querySelector('.field-name-field-catering-item4 .field-item, .field-name-field-catering-item-4 .field-item')?.text.trim() ?? '';
 
-          if (kap1.isNotEmpty) {
+          // YENİ SİSTEM: Kapları akıllı fonksiyona gönder, o doğru alanlara ayırsın
+          Map<String, String> menu = _kategorizeEt([k1, k2, k3, k4]);
+
+          // Eğer sayfada en az bir geçerli yemek varsa veritabanına kaydet
+          if (menu['ana_yemek']!.isNotEmpty || menu['corba']!.isNotEmpty) {
             String temizTarihId = bugunTarih.replaceAll(',', '').replaceAll(' ', '_');
             await _firestore.collection('gunluk_menu').doc(temizTarihId).set({
               'tarih': bugunTarih,
-              'corba': kap1,
-              'ana_yemek': kap2,
-              'yardimci_yemek': kap3,
-              'tatli': kap4,
-              'kayit_zamani': FieldValue.serverTimestamp(),
-            });
-            print("✔️ Bugünün menüsü ($bugunTarih) başarıyla çekildi!");
+              'corba': menu['corba'],
+              'ana_yemek': menu['ana_yemek'],
+              'yardimci_yemek': menu['yardimci_yemek'],
+              'tatli': menu['tatli'],
+              'kayit_zamani': FieldValue.serverTimestamp(), // Mevcut oyları silmemesi için 'merge: true' kullanılabilir ama sıfırdan çekiyoruz.
+            }, SetOptions(merge: true)); // MERGE: TRUE Eklendi ki eski oylamalar kaybolmasın!
+
+            print("✔️ Bugünün menüsü ($bugunTarih) akıllı sistemle çekildi!");
           }
         }
 
-        // --- 2. AŞAMA: HAFTALIK TABLOYU ÇEKME (Alt Tablo - Düzeltildi!) ---
+        // --- 2. AŞAMA: HAFTALIK TABLOYU ÇEKME (Alt Tablo) ---
         final satirlar = document.querySelectorAll('table.views-table tbody tr');
 
         for (var satir in satirlar) {
           final tarih = satir.querySelector('.views-field-field-menu-date')?.text.trim() ?? '';
 
-          // HEM TİRELİ HEM TİRESİZ İHTİMALİ ARATLIYORUZ (item1 ve item-1)
-          final kap1 = satir.querySelector('.views-field-field-catering-item1, .views-field-field-catering-item-1')?.text.trim() ?? '';
-          final kap2 = satir.querySelector('.views-field-field-catering-item2, .views-field-field-catering-item-2')?.text.trim() ?? '';
-          final kap3 = satir.querySelector('.views-field-field-catering-item3, .views-field-field-catering-item-3')?.text.trim() ?? '';
-          final kap4 = satir.querySelector('.views-field-field-catering-item4, .views-field-field-catering-item-4')?.text.trim() ?? '';
+          final k1 = satir.querySelector('.views-field-field-catering-item1, .views-field-field-catering-item-1')?.text.trim() ?? '';
+          final k2 = satir.querySelector('.views-field-field-catering-item2, .views-field-field-catering-item-2')?.text.trim() ?? '';
+          final k3 = satir.querySelector('.views-field-field-catering-item3, .views-field-field-catering-item-3')?.text.trim() ?? '';
+          final k4 = satir.querySelector('.views-field-field-catering-item4, .views-field-field-catering-item-4')?.text.trim() ?? '';
 
-          if (tarih.isNotEmpty && kap1.isNotEmpty) {
-            String temizTarihId = tarih.replaceAll(',', '').replaceAll(' ', '_');
-            await _firestore.collection('gunluk_menu').doc(temizTarihId).set({
-              'tarih': tarih,
-              'corba': kap1,
-              'ana_yemek': kap2,
-              'yardimci_yemek': kap3,
-              'tatli': kap4,
-              'kayit_zamani': FieldValue.serverTimestamp(),
-            });
-            print("✔️ Tablodan $tarih menüsü başarıyla çekildi!");
+          if (tarih.isNotEmpty) {
+            Map<String, String> menu = _kategorizeEt([k1, k2, k3, k4]);
+
+            if (menu['ana_yemek']!.isNotEmpty || menu['corba']!.isNotEmpty) {
+              String temizTarihId = tarih.replaceAll(',', '').replaceAll(' ', '_');
+              await _firestore.collection('gunluk_menu').doc(temizTarihId).set({
+                'tarih': tarih,
+                'corba': menu['corba'],
+                'ana_yemek': menu['ana_yemek'],
+                'yardimci_yemek': menu['yardimci_yemek'],
+                'tatli': menu['tatli'],
+                // Mevcut veriyi ezerken oyları sıfırlamasın diye merge: true kullanıyoruz
+                'kayit_zamani': FieldValue.serverTimestamp(),
+              }, SetOptions(merge: true));
+
+              print("✔️ Tablodan $tarih menüsü akıllı sistemle çekildi!");
+            }
           }
         }
 
-        print("🚀 BÜTÜN İŞLEM TAMAM! Tüm haftanın verisi Firebase'e gönderildi.");
+        print("🚀 BÜTÜN İŞLEM TAMAM! Tüm veriler akıllı algoritma ile Firebase'e kaydedildi.");
       }
     } catch (e) {
       print("❌ Veri kazınırken bir hata oluştu: $e");
