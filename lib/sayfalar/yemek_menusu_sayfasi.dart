@@ -365,15 +365,8 @@ class _YemekMenusuSayfasiState extends State<YemekMenusuSayfasi> {
               return;
             }
 
-            // Saat uygun değilse uyarı verip çıkıyoruz, uygunsa paneli açıyoruz.
-            String? hata = _etkilesimHataMesaji();
-            if (hata != null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(hata), duration: const Duration(seconds: 2)),
-              );
-            } else {
-              _yorumlariAc(context, belgeId);
-            }
+            // KİLİDİ AÇTIK: Saat kaç olursa olsun yorumlar okunabilir!
+            _yorumlariAc(context, belgeId);
           },
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -440,11 +433,14 @@ class _YemekMenusuSayfasiState extends State<YemekMenusuSayfasi> {
   }
 
   void _yorumlariAc(BuildContext context, String belgeId) {
+    // Saat ve tarih kontrolünü yapıp alt pencereye (BottomSheet) gönderiyoruz
+    String? hata = _etkilesimHataMesaji();
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => YorumlarBottomSheet(belgeId: belgeId),
+      builder: (context) => YorumlarBottomSheet(belgeId: belgeId, hataMesaji: hata),
     );
   }
 
@@ -537,7 +533,9 @@ class BottomWaveClipper extends CustomClipper<Path> {
 // === DİNAMİK İSİM YAPISI EKLENMİŞ YORUM PANELİ ===
 class YorumlarBottomSheet extends StatefulWidget {
   final String belgeId;
-  const YorumlarBottomSheet({Key? key, required this.belgeId}) : super(key: key);
+  final String? hataMesaji; // Saat kısıtlamasını kontrol etmek için eklendi
+
+  const YorumlarBottomSheet({Key? key, required this.belgeId, this.hataMesaji}) : super(key: key);
 
   @override
   State<YorumlarBottomSheet> createState() => _YorumlarBottomSheetState();
@@ -696,53 +694,70 @@ class _YorumlarBottomSheetState extends State<YorumlarBottomSheet> {
               ),
             ),
 
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(top: BorderSide(color: Colors.black12)),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      height: 45,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(24),
-                        border: Border.all(color: Colors.grey.shade400),
-                      ),
-                      child: TextField(
-                        controller: _yorumController,
-                        decoration: const InputDecoration(
-                          hintText: "Yorumunuzu yazın...",
-                          hintStyle: TextStyle(fontSize: 14),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            // EĞER HATA MESAJI YOKSA (SAAT 12-17 ARASIYSA) YORUM KUTUSUNU GÖSTER
+            if (widget.hataMesaji == null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  border: Border(top: BorderSide(color: Colors.black12)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 45,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(24),
+                          border: Border.all(color: Colors.grey.shade400),
+                        ),
+                        child: TextField(
+                          controller: _yorumController,
+                          decoration: const InputDecoration(
+                            hintText: "Yorumunuzu yazın...",
+                            hintStyle: TextStyle(fontSize: 14),
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  GestureDetector(
-                    onTap: _gonderiliyor ? null : _yorumGonder,
-                    child: Container(
-                      height: 45,
-                      padding: const EdgeInsets.symmetric(horizontal: 20),
-                      decoration: BoxDecoration(
-                        color: primaryBlue,
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      child: Center(
-                        child: _gonderiliyor
-                            ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                            : const Text("Gönder", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    const SizedBox(width: 12),
+                    GestureDetector(
+                      onTap: _gonderiliyor ? null : _yorumGonder,
+                      child: Container(
+                        height: 45,
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        decoration: BoxDecoration(
+                          color: primaryBlue,
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: Center(
+                          child: _gonderiliyor
+                              ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                              : const Text("Gönder", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
+              )
+            // EĞER SAAT 12-17 ARASI DEĞİLSE (YADA GEÇMİŞ/GELECEK GÜNSE) UYARIYI GÖSTER
+            else
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  border: const Border(top: BorderSide(color: Colors.black12)),
+                ),
+                child: Text(
+                  widget.hataMesaji!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.bold, fontSize: 14),
+                ),
               ),
-            ),
           ],
         ),
       ),
