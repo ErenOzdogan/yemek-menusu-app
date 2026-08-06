@@ -5,6 +5,7 @@ import 'package:timezone/timezone.dart' as tz;
 class BildirimServisi {
   static final FlutterLocalNotificationsPlugin _bildirimEklentisi =
   FlutterLocalNotificationsPlugin();
+  static void Function(String? payload)? bildirimeTiklaninca;
 
   static Future<void> init() async {
     tz.initializeTimeZones();
@@ -20,8 +21,21 @@ class BildirimServisi {
     // HATA 1 ÇÖZÜMÜ: Parametre adı sadece 'settings' olarak güncellendi.
     await _bildirimEklentisi.initialize(
       settings: ilkAyarlar,
-      onDidReceiveNotificationResponse: (NotificationResponse response) {},
+      onDidReceiveNotificationResponse: (NotificationResponse response) {
+        bildirimeTiklaninca?.call(response.payload);
+      },
     );
+  }
+
+  static Future<String?> ilkAcilisPayloadiniAl() async {
+    final detaylar =
+    await _bildirimEklentisi.getNotificationAppLaunchDetails();
+
+    if (detaylar?.didNotificationLaunchApp ?? false) {
+      return detaylar?.notificationResponse?.payload;
+    }
+
+    return null;
   }
 
   static Future<void> alarmlariGuncelle(
@@ -56,6 +70,7 @@ class BildirimServisi {
       id: 1,
       title: '🔮 Yarının Menüsüne Göz At!',
       body: 'Yarın menüde neler var? Tam listeyi şimdiden görmek için tıklayın.',
+      payload: 'yarin',
       scheduledDate: _siradakiZamaniHesapla(aksamSaati, aksamDakikasi),
       notificationDetails: bildirimDetaylari,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
@@ -66,6 +81,7 @@ class BildirimServisi {
       id: 2,
       title: '🍽️ Bugünün Menüsü Belli Oldu!',
       body: 'Bugün menüde neler var? Menüyü görmek ve oylamak için tıkla.',
+      payload: 'bugun',
       scheduledDate: _siradakiZamaniHesapla(sabahSaati, sabahDakikasi),
       notificationDetails: bildirimDetaylari,
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,

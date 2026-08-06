@@ -5,10 +5,16 @@ import 'menu_servis.dart';
 //import 'package:belediye_menu_app/services/gemini_service.dart';
 
 class YemekMenusuSayfasi extends StatefulWidget {
-  const YemekMenusuSayfasi({Key? key}) : super(key: key);
+  final DateTime? baslangicTarihi;
+
+  const YemekMenusuSayfasi({
+    super.key,
+    this.baslangicTarihi,
+  });
 
   @override
-  State<YemekMenusuSayfasi> createState() => _YemekMenusuSayfasiState();
+  State<YemekMenusuSayfasi> createState() =>
+      _YemekMenusuSayfasiState();
 }
 
 class _YemekMenusuSayfasiState extends State<YemekMenusuSayfasi> {
@@ -113,7 +119,8 @@ class _YemekMenusuSayfasiState extends State<YemekMenusuSayfasi> {
   @override
   void initState() {
     super.initState();
-    DateTime bugun = DateTime.now();
+    DateTime bugun =
+        widget.baslangicTarihi ?? DateTime.now();
 
     if (bugun.weekday == 6) {
       bugun = bugun.add(const Duration(days: 2));
