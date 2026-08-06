@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart'; // FİREBASE PAKETİ EKLENDİ
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'sayfalar/onboarding_sayfasi.dart';
-
-// 1. KABLO (IMPORT): Bildirim servisini ana sayfaya çağırdık (Klasör adının 'services' olduğunu varsayıyorum)
 import 'package:belediye_menu_app/services/bildirim_servisi.dart';
+
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
+
   await Firebase.initializeApp();
 
-  // 2. KABLO (KONTAK): Firebase başlatıldıktan hemen sonra bildirim motorunu uyandırıyoruz!
+  // Bildirim servisini başlat
   await BildirimServisi.init();
 
   runApp(const BelediyeMenuApp());
@@ -24,8 +26,10 @@ class BelediyeMenuApp extends StatelessWidget {
       title: 'Akıllı Menü ve Geri Bildirim',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        primaryColor: const Color(0xFF0D47A1), // Kurumsal Lacivert
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0D47A1)),
+        primaryColor: const Color(0xFF0D47A1),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF0D47A1),
+        ),
         useMaterial3: true,
       ),
       home: const OnboardingSayfasi(),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'menu_servis.dart';
+//import 'package:belediye_menu_app/services/gemini_service.dart';
 
 class YemekMenusuSayfasi extends StatefulWidget {
   const YemekMenusuSayfasi({Key? key}) : super(key: key);
@@ -11,6 +12,93 @@ class YemekMenusuSayfasi extends StatefulWidget {
 }
 
 class _YemekMenusuSayfasiState extends State<YemekMenusuSayfasi> {
+  /*final GeminiService _geminiService = GeminiService();
+
+  Map<String, int> _kaloriler = {};
+
+  bool _kaloriYukleniyor = false;
+
+  Future<void> _kalorileriHesapla(
+      String belgeId,
+      Map<String, dynamic> menu,
+      ) async {
+    if (_kaloriYukleniyor) return;
+
+    _kaloriYukleniyor = true;
+
+    try {
+      final yemekler = <String>[];
+
+      if ((menu['corba'] ?? '').toString().isNotEmpty) {
+        yemekler.add(menu['corba']);
+      }
+
+      if ((menu['ana_yemek'] ?? '').toString().isNotEmpty) {
+        yemekler.add(menu['ana_yemek']);
+      }
+
+      if ((menu['yardimci_yemek'] ?? '').toString().isNotEmpty) {
+        yemekler.add(menu['yardimci_yemek']);
+      }
+
+      if ((menu['tatli'] ?? '').toString().isNotEmpty) {
+        yemekler.add(menu['tatli']);
+      }
+
+      final sonuc = await _geminiService.kaloriHesapla(yemekler);
+
+      int corbaKalori = 0;
+      int anaKalori = 0;
+      int yardimciKalori = 0;
+      int tatliKalori = 0;
+
+      if ((menu['corba'] ?? '').toString().isNotEmpty) {
+        corbaKalori = (sonuc[menu['corba']] ?? 0) as int;
+      }
+
+      if ((menu['ana_yemek'] ?? '').toString().isNotEmpty) {
+        anaKalori = (sonuc[menu['ana_yemek']] ?? 0) as int;
+      }
+
+      if ((menu['yardimci_yemek'] ?? '').toString().isNotEmpty) {
+        yardimciKalori = (sonuc[menu['yardimci_yemek']] ?? 0) as int;
+      }
+
+      if ((menu['tatli'] ?? '').toString().isNotEmpty) {
+        tatliKalori = (sonuc[menu['tatli']] ?? 0) as int;
+      }
+
+      int toplamKalori =
+          corbaKalori +
+              anaKalori +
+              yardimciKalori +
+              tatliKalori;
+
+      await FirebaseFirestore.instance
+          .collection('gunluk_menu')
+          .doc(belgeId)
+          .update({
+        'corba_kalori': corbaKalori,
+        'ana_yemek_kalori': anaKalori,
+        'yardimci_yemek_kalori': yardimciKalori,
+        'tatli_kalori': tatliKalori,
+        'toplam_kalori': toplamKalori,
+      });
+
+      if (mounted) {
+        setState(() {
+          _kaloriler = sonuc.map(
+                (key, value) => MapEntry(key.toString(), (value as num).toInt()),
+          );
+        });
+      }
+    } catch (e) {
+      print(e);
+    }
+
+    _kaloriYukleniyor = false;
+  }*/
+
   final Color primaryBlue = const Color(0xFF003893);
   final Color lightBlueBg = const Color(0xFFE8EAF6);
   final Color textGray = const Color(0xFF757575);
@@ -66,6 +154,7 @@ class _YemekMenusuSayfasiState extends State<YemekMenusuSayfasi> {
         MenuServis servis = MenuServis();
         await servis.haftalikMenuyuCekVeKaydet();
       }
+
     } catch (e) {
       print("Otomatik kontrol hatası: $e");
     }
@@ -167,17 +256,41 @@ class _YemekMenusuSayfasiState extends State<YemekMenusuSayfasi> {
                       int toplamKalori = 0;
 
                       if (gunlukVeri != null) {
-                        void yemekEkle(String key, int ortalamaKalori) {
-                          if (gunlukVeri![key] != null && gunlukVeri![key].toString().trim().isNotEmpty) {
-                            aktifMenu.add({'ad': gunlukVeri![key], 'kalori': ortalamaKalori});
-                            toplamKalori += ortalamaKalori;
+                        int kaloriyiOku(String kaloriKey) {
+                          final deger = gunlukVeri![kaloriKey];
+
+                          if (deger is num) {
+                            return deger.toInt();
                           }
+
+                          return int.tryParse(deger?.toString() ?? '') ?? 0;
                         }
 
-                        yemekEkle('corba', 150);
-                        yemekEkle('ana_yemek', 450);
-                        yemekEkle('yardimci_yemek', 300);
-                        yemekEkle('tatli', 200);
+                        void yemekEkle(String yemekKey, String kaloriKey) {
+                          final yemekAdi =
+                              gunlukVeri![yemekKey]?.toString().trim() ?? '';
+
+                          if (yemekAdi.isEmpty) {
+                            return;
+                          }
+
+                          final kalori = kaloriyiOku(kaloriKey);
+
+                          aktifMenu.add({
+                            'ad': yemekAdi,
+                            'kalori': kalori,
+                          });
+
+                          toplamKalori += kalori;
+                        }
+
+                        yemekEkle('corba', 'corba_kalori');
+                        yemekEkle('ana_yemek', 'ana_yemek_kalori');
+                        yemekEkle(
+                          'yardimci_yemek',
+                          'yardimci_yemek_kalori',
+                        );
+                        yemekEkle('tatli', 'tatli_kalori');
                       }
 
                       return Column(

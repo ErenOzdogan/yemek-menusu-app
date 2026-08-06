@@ -1,10 +1,12 @@
 import 'package:http/http.dart' as http;
 import 'package:html/parser.dart' as parser;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:belediye_menu_app/services/gemini_service.dart';
 
 class MenuServis {
   final String _url = 'https://kahramanmaras.bel.tr/personel/yemek-menusu';
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final GeminiService _geminiService = GeminiService();
 
   // --- YENİ: AKILLI YEMEK KATEGORİZASYON ALGORİTMASI ---
   Map<String, String> _kategorizeEt(List<String> kaplar) {
@@ -48,6 +50,76 @@ class MenuServis {
     };
   }
 
+  String _metniStandartlastir(String metin) {
+    return metin
+        .trim()
+        .replaceAll('İ', 'i')
+        .replaceAll('I', 'ı')
+        .toLowerCase()
+        .replaceAll('ı', 'i')
+        .replaceAll('ğ', 'g')
+        .replaceAll('ü', 'u')
+        .replaceAll('ş', 's')
+        .replaceAll('ö', 'o')
+        .replaceAll('ç', 'c')
+        .replaceAll(RegExp(r'[^a-z0-9 ]'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+  }
+
+  int _intDegereCevir(dynamic deger) {
+    if (deger is num) {
+      return deger.round();
+    }
+
+    return int.tryParse(deger.toString()) ?? 0;
+  }
+
+  int _kaloriBul(Map<dynamic, dynamic> sonuc, String yemekAdi) {
+    if (yemekAdi.trim().isEmpty) {
+      return 0;
+    }
+
+    final standartYemekAdi = _metniStandartlastir(yemekAdi);
+
+    // Önce yemek adının tamamını eşleştir.
+    for (final kayit in sonuc.entries) {
+      final sonucYemekAdi =
+      _metniStandartlastir(kayit.key.toString());
+
+      if (sonucYemekAdi == standartYemekAdi) {
+        return _intDegereCevir(kayit.value);
+      }
+    }
+
+    // "Pilav & Yoğurt" gibi birden fazla yemeği ayır ve topla.
+    final parcalar = yemekAdi
+        .split(RegExp(r'\s*(?:&|\+|/)\s*'))
+        .where((parca) => parca.trim().isNotEmpty)
+        .toList();
+
+    int toplam = 0;
+    bool herhangiBiriBulundu = false;
+
+    for (final parca in parcalar) {
+      final standartParca = _metniStandartlastir(parca);
+
+      for (final kayit in sonuc.entries) {
+        final sonucYemekAdi =
+        _metniStandartlastir(kayit.key.toString());
+
+        if (sonucYemekAdi == standartParca) {
+          toplam += _intDegereCevir(kayit.value);
+          herhangiBiriBulundu = true;
+          break;
+        }
+      }
+    }
+
+    return herhangiBiriBulundu ? toplam : 0;
+  }
+
+
   Future<void> haftalikMenuyuCekVeKaydet() async {
     try {
       print("Belediyenin sitesine bağlanılıyor...");
@@ -77,6 +149,33 @@ class MenuServis {
 
           // YENİ SİSTEM: Kapları akıllı fonksiyona gönder, o doğru alanlara ayırsın
           Map<String, String> menu = _kategorizeEt([k1, k2, k3, k4]);
+          final sonuc = await _geminiService.kaloriHesapla([
+            menu['corba']!,
+            menu['ana_yemek']!,
+            menu['yardimci_yemek']!,
+            menu['tatli']!,
+          ]);
+
+          /*print("BUGÜN GEMINI SONUCU: $sonuc");
+          print("BUGÜN MENÜ VERİSİ: $menu");*/
+
+          int corbaKalori =
+          _kaloriBul(sonuc, menu['corba'] ?? '');
+
+          int anaKalori =
+          _kaloriBul(sonuc, menu['ana_yemek'] ?? '');
+
+          int yardimciKalori =
+          _kaloriBul(sonuc, menu['yardimci_yemek'] ?? '');
+
+          int tatliKalori =
+          _kaloriBul(sonuc, menu['tatli'] ?? '');
+
+          int toplamKalori =
+              corbaKalori +
+                  anaKalori +
+                  yardimciKalori +
+                  tatliKalori;
 
           // Eğer sayfada en az bir geçerli yemek varsa veritabanına kaydet
           if (menu['ana_yemek']!.isNotEmpty || menu['corba']!.isNotEmpty) {
@@ -87,6 +186,13 @@ class MenuServis {
               'ana_yemek': menu['ana_yemek'],
               'yardimci_yemek': menu['yardimci_yemek'],
               'tatli': menu['tatli'],
+
+              'corba_kalori': corbaKalori,
+              'ana_yemek_kalori': anaKalori,
+              'yardimci_yemek_kalori': yardimciKalori,
+              'tatli_kalori': tatliKalori,
+              'toplam_kalori': toplamKalori,
+
               'kayit_zamani': FieldValue.serverTimestamp(), // Mevcut oyları silmemesi için 'merge: true' kullanılabilir ama sıfırdan çekiyoruz.
             }, SetOptions(merge: true)); // MERGE: TRUE Eklendi ki eski oylamalar kaybolmasın!
 
@@ -107,6 +213,32 @@ class MenuServis {
 
           if (tarih.isNotEmpty) {
             Map<String, String> menu = _kategorizeEt([k1, k2, k3, k4]);
+            final sonuc = await _geminiService.kaloriHesapla([
+              menu['corba']!,
+              menu['ana_yemek']!,
+              menu['yardimci_yemek']!,
+              menu['tatli']!,
+            ]);
+
+            /*print("HAFTALIK GEMINI SONUCU: $sonuc");
+            print("HAFTALIK MENÜ VERİSİ: $menu");*/
+
+            int corbaKalori =
+            _kaloriBul(sonuc, menu['corba'] ?? '');
+
+            int anaKalori =
+            _kaloriBul(sonuc, menu['ana_yemek'] ?? '');
+
+            int yardimciKalori =
+            _kaloriBul(sonuc, menu['yardimci_yemek'] ?? '');
+
+            int tatliKalori =
+            _kaloriBul(sonuc, menu['tatli'] ?? '');
+            int toplamKalori =
+                corbaKalori +
+                    anaKalori +
+                    yardimciKalori +
+                    tatliKalori;
 
             if (menu['ana_yemek']!.isNotEmpty || menu['corba']!.isNotEmpty) {
               String temizTarihId = tarih.replaceAll(',', '').replaceAll(' ', '_');
@@ -116,6 +248,13 @@ class MenuServis {
                 'ana_yemek': menu['ana_yemek'],
                 'yardimci_yemek': menu['yardimci_yemek'],
                 'tatli': menu['tatli'],
+
+                'corba_kalori': corbaKalori,
+                'ana_yemek_kalori': anaKalori,
+                'yardimci_yemek_kalori': yardimciKalori,
+                'tatli_kalori': tatliKalori,
+                'toplam_kalori': toplamKalori,
+
                 // Mevcut veriyi ezerken oyları sıfırlamasın diye merge: true kullanıyoruz
                 'kayit_zamani': FieldValue.serverTimestamp(),
               }, SetOptions(merge: true));
